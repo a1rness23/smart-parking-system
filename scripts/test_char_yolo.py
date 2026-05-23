@@ -25,7 +25,7 @@ for filename in os.listdir(test_folder):
         true_label = os.path.splitext(filename)[0].replace(" ", "")
 
         # 💡 약간 흐릿한 글자도 잘 잡을 수 있도록 conf=0.15 (확신도 15% 이상이면 모두 인식) 추가
-        results = model(img_path, verbose=False, conf=0.25, iou=0.4)
+        results = model(img_path, verbose=False, conf=0.15, iou=0.2)
 
         detected_chars = []
         for box in results[0].boxes:
