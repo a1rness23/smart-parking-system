@@ -1,2 +1,16 @@
 venv/
 __pycache__/
+
+# 훈련용 이미지 폴더 및 대용량 파일 무시 (모든 버전 포함)
+new_synthetic_plates/
+new_synthetic_plates_v2/
+new_synthetic_plates_v2.zip
+synthetic_plates*/
+test_data_cropped_plates/
+test_data_full_car/
+
+# 1차 파인튜닝 모델 가중치 파일 무시 (코랩에서 다운받은 대용량 파일)
+models/inference_model/
+
+# 모든 압축 파일 무시 (용량 폭발 방지)
+*.zip
