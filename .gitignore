@@ -14,3 +14,7 @@ models/inference_model/
 
 # 모든 압축 파일 무시 (용량 폭발 방지)
 *.zip
+
+# Dataset
+new_raw_images/
+rec_train_images/

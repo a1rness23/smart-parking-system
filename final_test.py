@@ -5,16 +5,20 @@ from paddleocr import PaddleOCR
 # ==========================================
 # ⚙️ 1. 경로 설정 및 AI 모델 초기화
 # ==========================================
-CUSTOM_MODEL_DIR = "./models/inference_model" 
+CUSTOM_MODEL_DIR = "./models/inference_model_v2"
 CROPPED_DIR = "./test_data_cropped_plates"
 
-print("⏳ 모델을 불러오는 중입니다...")
-# 💡 기본 설정으로 불러오되, 나중에 실행할 때 탐지(det)를 끌 것입니다.
 ocr = PaddleOCR(
-    rec_model_dir=CUSTOM_MODEL_DIR, 
-    lang='korean',                  
-    use_angle_cls=False,            
-    show_log=False                  
+    # 💡 파일들(inference.pdmodel 등)이 직접 들어있는 폴더 경로를 정확히 적어주세요!
+    # (만약 inference 하위 폴더 안에 있다면 경로 끝에 /inference 를 붙여주세요)
+    rec_model_dir="./models/inference_model_v4_real_stable", 
+    
+    lang='korean',
+    use_gpu=False,
+    show_log=False,  
+    rec=True,
+    det=False,
+    cls=False
 )
 
 def evaluate_accuracy_rec_only(folder_path):
