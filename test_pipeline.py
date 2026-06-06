@@ -1,22 +1,34 @@
 import os
+import sys
 import cv2
 import logging
 from ultralytics import YOLO
 from paddleocr import PaddleOCR
 
-# 패들 로그 숨기기 (터미널 지저분해지는 것 방지)
 logging.getLogger("ppocr").setLevel(logging.ERROR)
 
 # ==========================================
-# 1. 경로 세팅
+# 1. 경로 세팅 (상대 경로로 깔끔하게 정리!)
 # ==========================================
 YOLO_MODEL_PATH = 'models/best.pt'
-OCR_MODEL_PATH = 'models/inference_model_v3'
+OCR_MODEL_PATH = 'models/my_final_v3'
+DICT_PATH = 'models/korean_dict.txt' # 💡 코랩에서 다운받은 사전 파일을 models 폴더에 넣으세요!
+
+# 💡 [철벽 방어막] 진짜 V3 모델이 없으면 다운로드 못하게 강제 종료!
+model_check_path = os.path.join(OCR_MODEL_PATH, 'inference.pdmodel')
+if not os.path.exists(model_check_path):
+    print("=" * 60)
+    print("🚨 [긴급 에러] 모델 파일을 찾을 수 없습니다!")
+    print(f"▶ 파이썬이 찾고 있는 위치: {model_check_path}")
+    print("▶ models 폴더 안에 my_final_v3 폴더가 제대로 있는지 확인해 주세요!")
+    print("=" * 60)
+    sys.exit()
+
 TEST_DIR = 'test_data_full_car'
 SAVE_DIR = 'test_results_visual'
 
 os.makedirs(SAVE_DIR, exist_ok=True)
-print("🚀 [System] 여백(Padding) 알고리즘이 적용된 V3 테스트를 시작합니다...\n")
+print("🚀 [System] 1차 노이즈 + 2차 현실 데이터로 무장한 V3 테스트를 시작합니다...\n")
 
 # ==========================================
 # 2. 모델 초기화
@@ -25,11 +37,11 @@ detector = YOLO(YOLO_MODEL_PATH)
 ocr = PaddleOCR(
     det=False,
     rec_model_dir=OCR_MODEL_PATH, 
-    lang='korean', # 한국어 강제 지정
-    # 본인의 사전 경로가 맞는지 다시 한번 확인!
-    rec_char_dict_path='C:/Users/user/AppData/Local/Programs/Python/Python39/lib/site-packages/paddleocr/ppocr/utils/dict/korean_dict.txt', 
+    ocr_version='PP-OCRv3', 
+    rec_image_shape="3, 48, 320", # 💡 V3 모델 성능을 100% 끌어내는 필수 규격!
+    rec_char_dict_path=DICT_PATH, 
     use_gpu=False,
-    show_log=False # 다운로드 등 지저분한 로그 출력 차단
+    show_log=False
 )
 
 # ==========================================
@@ -38,9 +50,9 @@ ocr = PaddleOCR(
 correct_count = 0
 total_count = 0
 
-print("-" * 50)
+print("-" * 55)
 print(f"{'파일명(정답)':<15} | {'V3 예측 결과':<15} | {'상태':<5} | {'확신도'}")
-print("-" * 50)
+print("-" * 55)
 
 for filename in os.listdir(TEST_DIR):
     if not filename.lower().endswith(('.png', '.jpg', '.jpeg')):
@@ -54,8 +66,6 @@ for filename in os.listdir(TEST_DIR):
     if img is None:
         continue
 
-    h, w, _ = img.shape # 원본 이미지 크기
-
     # [Stage 1] YOLO 탐지
     results = detector(img, verbose=False)
     boxes = results[0].boxes
@@ -67,43 +77,21 @@ for filename in os.listdir(TEST_DIR):
     box = boxes[0].xyxy[0].cpu().numpy().astype(int)
     x1, y1, x2, y2 = box
 
-    # 💡 [핵심] 상하좌우 여백(Margin) 7% 추가 알고리즘
-    box_width = x2 - x1
-    box_height = y2 - y1
-    
-    margin_x = int(box_width * 0.07)
-    margin_y = int(box_height * 0.07)
-
-    # 이미지 범위를 벗어나지 않도록 안전하게 여백 확보
-    x1 = max(0, x1 - margin_x)
-    y1 = max(0, y1 - margin_y)
-    x2 = min(w, x2 + margin_x)
-    y2 = min(h, y2 + margin_y)
-
+    # 💡 [여백 제거 완료] 타이트하게 자르기
     cropped_plate = img[y1:y2, x1:x2]
+    
+    # 예외 처리: 박스가 너무 작게 잡혔을 경우 에러 방지
+    if cropped_plate.size == 0:
+        continue
 
-    # ==========================================
-    # 💡 [핵심 추가] OCR 전용 이미지 시력 교정 (Pre-processing)
-    # ==========================================
-    # 1. 픽셀 보간법으로 해상도 2배 강제 확대 (흐릿한 글자 복원)
-    cropped_plate = cv2.resize(cropped_plate, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
-    
-    # 2. 이미지를 흑백으로 변환
-    gray = cv2.cvtColor(cropped_plate, cv2.COLOR_BGR2GRAY)
-    
-    # 3. CLAHE 알고리즘 적용: 빛 반사나 그림자를 제거하고 글자와 배경의 대비를 극대화
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-    enhanced = clahe.apply(gray)
-    
-    # 4. 패들OCR은 3채널(컬러)을 요구하므로 다시 차원 복구
-    cropped_plate = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
-    # ==========================================
+    # 💡 [마일드한 시력 교정] 해상도 2배 확대 (CNN 피처맵 소실 방지)
+    # cropped_plate = cv2.resize(cropped_plate, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
 
-    # [Stage 2] V3 모델 인식
+    # [Stage 2] V3 모델 인식 (중복되던 코드 한 줄로 정리!)
     ocr_result = ocr.ocr(cropped_plate, det=False, cls=False)
 
     if not ocr_result or not ocr_result[0]:
-        print(f"{true_label:<15} | {'-':<15} | {'Fail':<5} | V3 실패")
+        print(f"{true_label:<15} | {'-':<15} | {'Fail':<5} | V3 읽기 실패")
         continue
 
     pred_text = ocr_result[0][0][0]
@@ -127,7 +115,7 @@ for filename in os.listdir(TEST_DIR):
 # ==========================================
 if total_count > 0:
     accuracy = (correct_count / total_count) * 100
-    print("-" * 50)
-    print(f"🎯 [최종 리포트] V3 모델 실전 테스트 결과")
+    print("-" * 55)
+    print(f"🎯 [최종 리포트] 다단계 학습 V3 모델 실전 테스트 결과")
     print(f"▶ 최종 정확도: {accuracy:.2f}% ({correct_count}/{total_count})")
-    print("-" * 50)
+    print("-" * 55)

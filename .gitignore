@@ -18,3 +18,17 @@ models/inference_model/
 # Dataset
 new_raw_images/
 rec_train_images/
+
+# --- Dataset & Image Files ---
+*.jpg
+*.jpeg
+*.png
+*.bmp
+
+# (선택) 만약 특정 데이터셋 폴더 통째로 무시하려면 폴더명 추가
+# datasets/
+# images/
+
+# --- Presentation / Chart Outputs ---
+# 스크립트로 자동 생성된 차트 이미지들 제외
+presentation_chart_*.png
